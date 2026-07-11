@@ -1,3 +1,4 @@
+import Script from "next/script";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import SessionProvider from "@/components/providers/SessionProvider";
@@ -28,6 +29,14 @@ export default function RootLayout({
             <Footer />
           </div>
         </SessionProvider>
+        <Script
+          src={process.env.MIDTRANS_IS_PRODUCTION === "true"
+            ? "https://app.midtrans.com/snap/snap.js"
+            : "https://app.sandbox.midtrans.com/snap/snap.js"
+          }
+          data-client-key={process.env.MIDTRANS_CLIENT_KEY || ""}
+          strategy="lazyOnload"
+        />
       </body>
     </html>
   );

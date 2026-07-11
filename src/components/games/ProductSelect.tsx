@@ -14,6 +14,19 @@ interface ProductSelectProps {
   gameName: string;
 }
 
+declare global {
+  interface Window {
+    snap?: {
+      pay: (token: string, options: {
+        onSuccess?: (result: Record<string, unknown>) => void;
+        onPending?: (result: Record<string, unknown>) => void;
+        onError?: (result: Record<string, unknown>) => void;
+        onClose?: () => void;
+      }) => void;
+    };
+  }
+}
+
 export default function ProductSelect({ products, gameName }: ProductSelectProps) {
   const { data: session } = useSession();
   const router = useRouter();
@@ -22,6 +35,7 @@ export default function ProductSelect({ products, gameName }: ProductSelectProps
   const [step, setStep] = useState<"select" | "checkout" | "payment">("select");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
 
   const handleCheckout = async (data: {
     gameAccountId: string;
@@ -60,6 +74,7 @@ export default function ProductSelect({ products, gameName }: ProductSelectProps
         throw new Error(orderData.error || "Gagal membuat pesanan");
       }
 
+      setOrderId(orderData.data.id);
       setStep("payment");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -69,8 +84,50 @@ export default function ProductSelect({ products, gameName }: ProductSelectProps
   };
 
   const handlePayment = async () => {
-    if (!selectedPayment) return;
-    setStep("payment");
+    if (!selectedPayment || !orderId) return;
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/payments/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, method: selectedPayment }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        throw new Error(data.error || "Gagal membuat pembayaran");
+      }
+
+      if (data.data.token && window.snap) {
+        window.snap.pay(data.data.token, {
+          onSuccess: (result) => {
+            console.log("Payment success:", result);
+            router.push(`/checkout/${orderId}?status=success`);
+          },
+          onPending: (result) => {
+            console.log("Payment pending:", result);
+            router.push(`/checkout/${orderId}?status=pending`);
+          },
+          onError: (result) => {
+            console.error("Payment error:", result);
+            setError("Pembayaran gagal. Silakan coba lagi.");
+          },
+          onClose: () => {
+            setError("Pembayaran dibatalkan. Silakan coba lagi jika belum membayar.");
+          },
+        });
+      } else if (data.data.redirect_url) {
+        window.location.href = data.data.redirect_url;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -122,6 +179,9 @@ export default function ProductSelect({ products, gameName }: ProductSelectProps
       {step === "payment" && (
         <div className="border-t border-dark-100 pt-6">
           <h3 className="mb-4 text-lg font-semibold text-dark-900">Pilih Pembayaran</h3>
+          {error && (
+            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
+          )}
           <PaymentMethod selectedMethod={selectedPayment} onSelect={setSelectedPayment} />
           {selectedPayment && (
             <div className="mt-4 rounded-lg bg-dark-50 p-4">
@@ -131,7 +191,13 @@ export default function ProductSelect({ products, gameName }: ProductSelectProps
                   {formatRupiah(selectedProduct!.price)}
                 </span>
               </div>
-              <Button className="mt-3 w-full">Bayar Sekarang</Button>
+              <Button
+                className="mt-3 w-full"
+                onClick={handlePayment}
+                isLoading={isSubmitting}
+              >
+                Bayar Sekarang
+              </Button>
             </div>
           )}
         </div>
