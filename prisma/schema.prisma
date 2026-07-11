@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String
+  phone         String?
+  role          Role      @default(USER)
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  orders        Order[]
+  transactions  Transaction[]
+
+  @@map("users")
+}
+
+model Game {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  image       String?
+  category    String
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@map("games")
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  price       Int
+  originalPrice Int?
+  nominal     String
+  bonus       String?
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  gameId      String
+  game        Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+
+  @@map("products")
+}
+
+model Order {
+  id            String    @id @default(cuid())
+  orderNumber   String    @unique
+  status        OrderStatus @default(PENDING)
+  totalAmount   Int
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameAccountId String
+  gameServerId  String?
+  playerName    String?
+  email         String?
+  phone         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  items         OrderItem[]
+  payment       Payment?
+  transactions  Transaction[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  quantity  Int     @default(1)
+  price     Int
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  orderId         String        @unique
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  method          String
+  status          PaymentStatus @default(PENDING)
+  amount          Int
+  fee             Int           @default(0)
+  total           Int
+  paymentUrl      String?
+  callbackUrl     String?
+  expiredAt       DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+model Transaction {
+  id            String    @id @default(cuid())
+  type          TransactionType
+  amount        Int
+  description   String?
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId       String?   @unique
+  orderRef      Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+
+  @@map("transactions")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+enum TransactionType {
+  TOPUP
+  PURCHASE
+  REFUND
+  BONUS
+}
