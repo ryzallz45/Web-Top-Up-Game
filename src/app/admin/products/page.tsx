@@ -16,18 +16,26 @@ interface Product {
   originalPrice: number | null;
   nominal: string;
   bonus: string | null;
+  description: string | null;
   isActive: boolean;
-  game: { name: string };
+  game: { id: string; name: string };
 }
+
+interface Game {
+  id: string;
+  name: string;
+}
+
+const emptyForm = { name: "", gameId: "", price: "", originalPrice: "", nominal: "", bonus: "", description: "" };
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [games, setGames] = useState<{ id: string; name: string }[]>([]);
+  const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "", gameId: "", price: "", originalPrice: "", nominal: "", bonus: "",
-  });
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [formData, setFormData] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
 
   const fetchProducts = () => {
     fetch("/api/admin/products")
@@ -43,18 +51,67 @@ export default function AdminProductsPage() {
     });
   }, []);
 
-  const handleSave = async () => {
-    await fetch("/api/admin/products", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...formData,
-        price: parseInt(formData.price),
-        originalPrice: formData.originalPrice ? parseInt(formData.originalPrice) : null,
-      }),
+  const openCreate = () => {
+    setEditingProduct(null);
+    setFormData(emptyForm);
+    setIsModalOpen(true);
+  };
+
+  const openEdit = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      gameId: product.game.id,
+      price: product.price.toString(),
+      originalPrice: product.originalPrice?.toString() || "",
+      nominal: product.nominal,
+      bonus: product.bonus || "",
+      description: product.description || "",
     });
-    setIsModalOpen(false);
-    fetchProducts();
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (editingProduct) {
+        const res = await fetch(`/api/admin/products/${editingProduct.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: formData.name,
+            price: parseInt(formData.price),
+            originalPrice: formData.originalPrice ? parseInt(formData.originalPrice) : null,
+            nominal: formData.nominal,
+            bonus: formData.bonus || null,
+            description: formData.description || null,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) alert(data.error);
+      } else {
+        const res = await fetch("/api/admin/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: formData.name,
+            gameId: formData.gameId,
+            price: parseInt(formData.price),
+            originalPrice: formData.originalPrice ? parseInt(formData.originalPrice) : null,
+            nominal: formData.nominal,
+            bonus: formData.bonus || null,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) alert(data.error);
+      }
+      setIsModalOpen(false);
+      fetchProducts();
+    } catch {
+      alert("Gagal menyimpan produk");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -70,7 +127,7 @@ export default function AdminProductsPage() {
           <h1 className="text-2xl font-bold text-dark-900">Kelola Produk</h1>
           <p className="mt-1 text-dark-500">Kelola semua produk top-up</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
+        <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
           Tambah Produk
         </Button>
@@ -111,8 +168,10 @@ export default function AdminProductsPage() {
                           </Badge>
                         </td>
                         <td className="py-3">
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="sm"><Edit className="h-4 w-4" /></Button>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(product)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
                             <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(product.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -128,29 +187,70 @@ export default function AdminProductsPage() {
         </CardContent>
       </Card>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Tambah Produk Baru">
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingProduct ? "Edit Produk" : "Tambah Produk Baru"}
+      >
         <div className="space-y-4">
-          <Input label="Nama Produk" placeholder="Contoh: 56 Diamonds" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark-700">Game</label>
-            <select
-              value={formData.gameId}
-              onChange={(e) => setFormData({ ...formData, gameId: e.target.value })}
-              className="flex h-10 w-full rounded-lg border border-dark-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">Pilih game</option>
-              {games.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-          </div>
-          <Input label="Nominal" placeholder="Contoh: 56" value={formData.nominal} onChange={(e) => setFormData({ ...formData, nominal: e.target.value })} />
-          <Input label="Harga (Rp)" type="number" placeholder="Contoh: 15000" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} />
-          <Input label="Harga Asli (Rp, opsional)" type="number" placeholder="Harga sebelum diskon" value={formData.originalPrice} onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })} />
-          <Input label="Bonus (opsional)" placeholder="Contoh: +10" value={formData.bonus} onChange={(e) => setFormData({ ...formData, bonus: e.target.value })} />
+          <Input
+            label="Nama Produk"
+            placeholder="Contoh: 56 Diamonds"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          />
+          {!editingProduct && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-dark-700">Game</label>
+              <select
+                value={formData.gameId}
+                onChange={(e) => setFormData({ ...formData, gameId: e.target.value })}
+                className="flex h-10 w-full rounded-lg border border-dark-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">Pilih game</option>
+                {games.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {editingProduct && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-dark-700">Game</label>
+              <p className="text-sm text-dark-600">{editingProduct.game.name}</p>
+            </div>
+          )}
+          <Input
+            label="Nominal"
+            placeholder="Contoh: 56"
+            value={formData.nominal}
+            onChange={(e) => setFormData({ ...formData, nominal: e.target.value })}
+          />
+          <Input
+            label="Harga (Rp)"
+            type="number"
+            placeholder="Contoh: 15000"
+            value={formData.price}
+            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+          />
+          <Input
+            label="Harga Asli (Rp, opsional)"
+            type="number"
+            placeholder="Harga sebelum diskon"
+            value={formData.originalPrice}
+            onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
+          />
+          <Input
+            label="Bonus (opsional)"
+            placeholder="Contoh: +10"
+            value={formData.bonus}
+            onChange={(e) => setFormData({ ...formData, bonus: e.target.value })}
+          />
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>Batal</Button>
-            <Button onClick={handleSave}>Simpan</Button>
+            <Button onClick={handleSave} isLoading={saving}>
+              {editingProduct ? "Simpan Perubahan" : "Simpan"}
+            </Button>
           </div>
         </div>
       </Modal>
