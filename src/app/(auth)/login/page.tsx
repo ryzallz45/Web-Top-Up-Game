@@ -93,6 +93,9 @@ export default function LoginPage() {
               <input type="checkbox" className="rounded border-dark-300" />
               Ingat saya
             </label>
+            <Link href="/forgot-password" className="text-sm font-medium text-primary-600 hover:underline">
+              Lupa password?
+            </Link>
           </div>
 
           <Button type="submit" className="w-full" isLoading={isLoading}>

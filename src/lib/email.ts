@@ -126,8 +126,38 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
 
   return sendEmail({
     to: data.customerEmail,
-    subject: `[GameTopup] Pesanan ${data.orderNumber} Diterima`,
+    subject: `[GameTopup] Pesanan Diterima - ${data.orderNumber}`,
     html: baseLayout("Pesanan Berhasil Dibuat!", content),
+  });
+}
+
+export interface PasswordResetEmailData {
+  customerName: string;
+  customerEmail: string;
+  resetUrl: string;
+}
+
+export async function sendPasswordReset(data: PasswordResetEmailData) {
+  const content = `
+    <p style="color:#64748b;font-size:14px;margin:0 0 20px 0;">
+      Hi <strong>${data.customerName}</strong>, kamu meminta reset password untuk akun GameTopup kamu.
+    </p>
+    <p style="color:#64748b;font-size:14px;margin:0 0 20px 0;">
+      Klik tombol di bawah ini untuk membuat password baru. Link ini akan kadaluarsa dalam <strong>1 jam</strong>.
+    </p>
+    <a href="${data.resetUrl}" 
+       style="display:inline-block;background-color:#2563eb;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+      Reset Password
+    </a>
+    <p style="color:#94a3b8;font-size:12px;margin:24px 0 0 0;">
+      Jika kamu tidak meminta reset password, abaikan email ini. Tidak ada perubahan yang akan dilakukan pada akun kamu.
+    </p>
+  `;
+
+  return sendEmail({
+    to: data.customerEmail,
+    subject: `[GameTopup] Reset Password`,
+    html: baseLayout("Reset Password", content),
   });
 }
 
@@ -145,7 +175,7 @@ export interface PaymentEmailData {
 
 export async function sendPaymentResult(data: PaymentEmailData) {
   const isSuccess = data.status === "success";
-  const title = isSuccess ? "Pembayaran Berhasil!" : "Pembayaran Gagal";
+  const statusTitle = isSuccess ? "Pembayaran Berhasil!" : "Pembayaran Gagal";
   const bgColor = isSuccess ? "#f0fdf4" : "#fef2f2";
   const borderColor = isSuccess ? "#22c55e" : "#ef4444";
   const textColor = isSuccess ? "#166534" : "#991b1b";
@@ -179,8 +209,8 @@ export async function sendPaymentResult(data: PaymentEmailData) {
 
   return sendEmail({
     to: data.customerEmail,
-    subject: `[GameTopup] ${title} - ${data.orderNumber}`,
-    html: baseLayout(title, content),
+    subject: `[GameTopup] ${statusTitle} - ${data.orderNumber}`,
+    html: baseLayout(statusTitle, content),
   });
 }
 
@@ -211,18 +241,18 @@ const STATUS_COLORS: Record<string, { bg: string; border: string; text: string }
 };
 
 export async function sendStatusUpdate(data: StatusUpdateEmailData) {
-  const title = STATUS_LABELS[data.status] || "Status Diperbarui";
+  const statusTitle = STATUS_LABELS[data.status] || "Status Diperbarui";
   const colors = STATUS_COLORS[data.status] || STATUS_COLORS.PROCESSING;
 
   const content = `
     <div style="background-color:${colors.bg};border:1px solid ${colors.border};border-radius:12px;padding:20px;margin-bottom:20px;text-align:center;">
-      <p style="color:${colors.text};font-size:16px;margin:0;font-weight:700;">${title}</p>
+      <p style="color:${colors.text};font-size:16px;margin:0;font-weight:700;">${statusTitle}</p>
     </div>
     <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;padding:20px;margin-bottom:20px;">
       ${detailRow("No. Pesanan", `<span style="font-family:monospace;">${data.orderNumber}</span>`)}
       ${detailRow("Game", data.gameName)}
       ${detailRow("Produk", `${data.productName} (${data.nominal})`)}
-      ${detailRow("Status", `<span style="color:${colors.text};font-weight:700;">${title}</span>`)}
+      ${detailRow("Status", `<span style="color:${colors.text};font-weight:700;">${statusTitle}</span>`)}
     </table>
     <a href="${process.env.NEXTAUTH_URL}/dashboard/orders" 
        style="display:inline-block;background-color:#2563eb;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
@@ -232,7 +262,7 @@ export async function sendStatusUpdate(data: StatusUpdateEmailData) {
 
   return sendEmail({
     to: data.customerEmail,
-    subject: `[GameTopup] ${title} - ${data.orderNumber}`,
-    html: baseLayout(title, content),
+    subject: `[GameTopup] ${statusTitle} - ${data.orderNumber}`,
+    html: baseLayout(statusTitle, content),
   });
 }
