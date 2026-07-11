@@ -1,102 +1,29 @@
 import Link from "next/link";
 import { Search, Zap, Shield, Clock, Star } from "lucide-react";
-import GameGrid from "@/components/games/GameGrid";
-import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import type { Game } from "@/types";
+import Button from "@/components/ui/Button";
+import prisma from "@/lib/prisma";
 
-const mockGames: Game[] = [
-  {
-    id: "1",
-    name: "Mobile Legends",
-    slug: "mobile-legends",
-    description: "Top up Diamond Mobile Legends dengan harga terbaik",
-    image: null,
-    category: "MOBA",
-    isActive: true,
-    sortOrder: 1,
-    products: [
-      { id: "p1", name: "56 Diamonds", description: "", price: 15000, originalPrice: 17000, nominal: "56", bonus: null, isActive: true, sortOrder: 1, gameId: "1" },
-      { id: "p2", name: "172 Diamonds", description: "", price: 45000, originalPrice: 50000, nominal: "172", bonus: "+10", isActive: true, sortOrder: 2, gameId: "1" },
-      { id: "p3", name: "568 Diamonds", description: "", price: 145000, originalPrice: 155000, nominal: "568", bonus: "+50", isActive: true, sortOrder: 3, gameId: "1" },
-    ],
-  },
-  {
-    id: "2",
-    name: "Free Fire",
-    slug: "free-fire",
-    description: "Top up Diamond Free Fire dengan proses instan",
-    image: null,
-    category: "Battle Royale",
-    isActive: true,
-    sortOrder: 2,
-    products: [
-      { id: "p4", name: "110 Diamonds", description: "", price: 16000, originalPrice: 18000, nominal: "110", bonus: null, isActive: true, sortOrder: 1, gameId: "2" },
-      { id: "p5", name: "330 Diamonds", description: "", price: 46000, originalPrice: 50000, nominal: "330", bonus: "+10", isActive: true, sortOrder: 2, gameId: "2" },
-    ],
-  },
-  {
-    id: "3",
-    name: "Genshin Impact",
-    slug: "genshin-impact",
-    description: "Beli Genesis Crystal Genshin Impact murah",
-    image: null,
-    category: "RPG",
-    isActive: true,
-    sortOrder: 3,
-    products: [
-      { id: "p6", name: "60 Genesis Crystal", description: "", price: 16000, originalPrice: null, nominal: "60", bonus: null, isActive: true, sortOrder: 1, gameId: "3" },
-    ],
-  },
-  {
-    id: "4",
-    name: "PUBG Mobile",
-    slug: "pubg-mobile",
-    description: "Top up UC PUBG Mobile dengan harga terjangkau",
-    image: null,
-    category: "Battle Royale",
-    isActive: true,
-    sortOrder: 4,
-    products: [
-      { id: "p7", name: "60 UC", description: "", price: 15000, originalPrice: null, nominal: "60", bonus: null, isActive: true, sortOrder: 1, gameId: "4" },
-    ],
-  },
-  {
-    id: "5",
-    name: "Valorant",
-    slug: "valorant",
-    description: "Beli VP Valorant untuk skin favoritmu",
-    image: null,
-    category: "FPS",
-    isActive: true,
-    sortOrder: 5,
-    products: [
-      { id: "p8", name: "125 VP", description: "", price: 25000, originalPrice: null, nominal: "125", bonus: null, isActive: true, sortOrder: 1, gameId: "5" },
-    ],
-  },
-  {
-    id: "6",
-    name: "Roblox",
-    slug: "roblox",
-    description: "Beli Robux untuk berbagai item keren",
-    image: null,
-    category: "Sandbox",
-    isActive: true,
-    sortOrder: 6,
-    products: [
-      { id: "p9", name: "80 Robux", description: "", price: 16000, originalPrice: null, nominal: "80", bonus: null, isActive: true, sortOrder: 1, gameId: "6" },
-    ],
-  },
-];
+async function getGames() {
+  const games = await prisma.game.findMany({
+    where: { isActive: true },
+    include: { products: { where: { isActive: true }, orderBy: { price: "asc" } } },
+    orderBy: { sortOrder: "asc" },
+    take: 6,
+  });
+  return games;
+}
 
-const features = [
-  { icon: Zap, title: "Proses Instan", description: "Pesanan otomatis diproses dalam hitungan detik" },
-  { icon: Shield, title: "100% Aman", description: "Transaksi terjamin aman dan terpercaya" },
-  { icon: Clock, title: "24/7 Online", description: "Layanan tersedia kapan saja dan di mana saja" },
-  { icon: Star, title: "Harga Terbaik", description: "Harga paling murah dibanding kompetitor" },
-];
+export default async function HomePage() {
+  const games = await getGames();
 
-export default function HomePage() {
+  const features = [
+    { icon: Zap, title: "Proses Instan", description: "Pesanan otomatis diproses dalam hitungan detik" },
+    { icon: Shield, title: "100% Aman", description: "Transaksi terjamin aman dan terpercaya" },
+    { icon: Clock, title: "24/7 Online", description: "Layanan tersedia kapan saja dan di mana saja" },
+    { icon: Star, title: "Harga Terbaik", description: "Harga paling murah dibanding kompetitor" },
+  ];
+
   return (
     <div>
       <section className="gradient-hero relative overflow-hidden">
@@ -118,11 +45,14 @@ export default function HomePage() {
               </Link>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dark-400" />
-                <input
-                  type="text"
-                  placeholder="Cari game favoritmu..."
-                  className="h-12 w-full rounded-xl border-0 bg-white/10 pl-10 pr-4 text-white placeholder-primary-200 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-white/30 sm:w-80"
-                />
+                <Link href="/games">
+                  <input
+                    type="text"
+                    placeholder="Cari game favoritmu..."
+                    className="h-12 w-full rounded-xl border-0 bg-white/10 pl-10 pr-4 text-white placeholder-primary-200 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-white/30 sm:w-80"
+                    readOnly
+                  />
+                </Link>
               </div>
             </div>
           </div>
@@ -149,7 +79,45 @@ export default function HomePage() {
           <h2 className="text-2xl font-bold text-dark-900">Game Populer</h2>
           <p className="mt-2 text-dark-500">Pilih game favoritmu dan mulai top up</p>
         </div>
-        <GameGrid games={mockGames} />
+        {games.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <span className="text-6xl">🎮</span>
+            <h3 className="mt-4 text-lg font-medium text-dark-900">Belum ada game</h3>
+            <p className="mt-1 text-sm text-dark-500">Game akan segera tersedia</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {games.map((game) => (
+              <Link key={game.id} href={`/games/${game.slug}`}>
+                <Card hover className="group overflow-hidden p-0">
+                  <div className="relative aspect-video w-full overflow-hidden bg-dark-100">
+                    <div className="flex h-full items-center justify-center text-dark-400">
+                      <span className="text-4xl">🎮</span>
+                    </div>
+                    <div className="absolute left-3 top-3">
+                      <span className="rounded-full bg-primary-600 px-2.5 py-1 text-xs font-medium text-white">
+                        {game.category}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-base font-semibold text-dark-900 group-hover:text-primary-600">
+                      {game.name}
+                    </h3>
+                    {game.description && (
+                      <p className="mt-1 line-clamp-2 text-sm text-dark-500">{game.description}</p>
+                    )}
+                    {game.products.length > 0 && (
+                      <p className="mt-2 text-xs text-dark-400">
+                        Mulai dari Rp{Math.min(...game.products.map((p) => p.price)).toLocaleString("id-ID")}
+                      </p>
+                    )}
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
         <div className="mt-8 text-center">
           <Link href="/games">
             <Button variant="outline">Lihat Semua Game</Button>

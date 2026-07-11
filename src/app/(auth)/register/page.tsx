@@ -1,14 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Gamepad2 } from "lucide-react";
+import { Gamepad2, Eye, EyeOff } from "lucide-react";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -20,7 +26,50 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 2000);
+    setError(null);
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Password tidak cocok");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setError(data.error);
+        return;
+      }
+
+      setSuccess(true);
+
+      const signInResult = await signIn("credentials", {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+      });
+
+      if (signInResult?.ok) {
+        router.push("/");
+        router.refresh();
+      }
+    } catch {
+      setError("Terjadi kesalahan saat registrasi");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -39,6 +88,16 @@ export default function RegisterPage() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
+        )}
+
+        {success && (
+          <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-600">
+            Registrasi berhasil! Mengalihkan...
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label="Nama Lengkap"
@@ -56,20 +115,29 @@ export default function RegisterPage() {
             required
           />
           <Input
-            label="Nomor Telepon"
+            label="Nomor Telepon (opsional)"
             type="tel"
             placeholder="08xxxxxxxxxx"
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           />
-          <Input
-            label="Password"
-            type="password"
-            placeholder="Minimal 8 karakter"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            required
-          />
+          <div className="relative">
+            <Input
+              label="Password"
+              type={showPassword ? "text" : "password"}
+              placeholder="Minimal 8 karakter"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-9 text-dark-400 hover:text-dark-600"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
           <Input
             label="Konfirmasi Password"
             type="password"

@@ -1,20 +1,44 @@
 "use client";
 
 import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Gamepad2 } from "lucide-react";
+import { Gamepad2, Eye, EyeOff } from "lucide-react";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({ email: "", password: "" });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 2000);
+    setError(null);
+
+    try {
+      const result = await signIn("credentials", {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        router.push("/");
+        router.refresh();
+      }
+    } catch {
+      setError("Terjadi kesalahan saat login");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -33,6 +57,10 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label="Email"
@@ -42,27 +70,41 @@ export default function LoginPage() {
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             required
           />
-          <Input
-            label="Password"
-            type="password"
-            placeholder="Masukkan password"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            required
-          />
+          <div className="relative">
+            <Input
+              label="Password"
+              type={showPassword ? "text" : "password"}
+              placeholder="Masukkan password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-9 text-dark-400 hover:text-dark-600"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 text-sm text-dark-600">
               <input type="checkbox" className="rounded border-dark-300" />
               Ingat saya
             </label>
-            <Link href="/forgot-password" className="text-sm text-primary-600 hover:underline">
-              Lupa password?
-            </Link>
           </div>
+
           <Button type="submit" className="w-full" isLoading={isLoading}>
             Masuk
           </Button>
         </form>
+
+        <div className="mt-6 border-t border-dark-100 pt-4">
+          <p className="text-center text-xs text-dark-400">Akun test:</p>
+          <p className="text-center text-xs text-dark-500">Admin: admin@gametopup.id / admin123</p>
+          <p className="text-center text-xs text-dark-500">User: user@gametopup.id / user123</p>
+        </div>
       </Card>
     </div>
   );

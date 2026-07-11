@@ -1,14 +1,20 @@
-import { Card, CardTitle, CardContent } from "@/components/ui/Card";
+"use client";
+
+import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { formatRupiah } from "@/lib/utils";
 
-const orders = [
-  { id: "GT-250711-ABC123", game: "Mobile Legends", nominal: "56 Diamonds", amount: 15000, status: "SUCCESS" as const, date: "11 Jul 2025, 14:30" },
-  { id: "GT-250710-DEF456", game: "Free Fire", nominal: "330 Diamonds", amount: 46000, status: "PROCESSING" as const, date: "10 Jul 2025, 09:15" },
-  { id: "GT-250709-GHI789", game: "Genshin Impact", nominal: "60 Genesis Crystal", amount: 16000, status: "SUCCESS" as const, date: "9 Jul 2025, 20:45" },
-  { id: "GT-250708-JKL012", game: "Mobile Legends", nominal: "172 Diamonds", amount: 45000, status: "FAILED" as const, date: "8 Jul 2025, 11:20" },
-  { id: "GT-250707-MNO345", game: "PUBG Mobile", nominal: "60 UC", amount: 15000, status: "SUCCESS" as const, date: "7 Jul 2025, 16:00" },
-];
+interface Order {
+  id: string;
+  orderNumber: string;
+  status: string;
+  totalAmount: number;
+  createdAt: string;
+  items: { product: { name: string; nominal: string }; price: number }[];
+  payment: { method: string; status: string } | null;
+}
 
 const statusBadge: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "default" }> = {
   SUCCESS: { label: "Berhasil", variant: "success" },
@@ -16,9 +22,23 @@ const statusBadge: Record<string, { label: string; variant: "success" | "warning
   PENDING: { label: "Menunggu", variant: "info" },
   FAILED: { label: "Gagal", variant: "danger" },
   CANCELLED: { label: "Dibatalkan", variant: "default" },
+  EXPIRED: { label: "Kedaluwarsa", variant: "default" },
 };
 
 export default function OrdersPage() {
+  const { data: session } = useSession();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/orders")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) setOrders(data.data);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="container-page section-padding">
       <div className="mb-8">
@@ -28,26 +48,43 @@ export default function OrdersPage() {
 
       <Card>
         <CardContent>
-          <div className="space-y-3">
-            {orders.map((order) => (
-              <div
-                key={order.id}
-                className="flex items-center justify-between rounded-lg border border-dark-100 p-4 transition-colors hover:bg-dark-50"
-              >
-                <div>
-                  <p className="font-mono text-sm font-medium text-dark-900">{order.id}</p>
-                  <p className="text-sm text-dark-600">{order.game} - {order.nominal}</p>
-                  <p className="mt-1 text-xs text-dark-400">{order.date}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-dark-900">{formatRupiah(order.amount)}</p>
-                  <Badge variant={statusBadge[order.status].variant}>
-                    {statusBadge[order.status].label}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
+          {loading ? (
+            <div className="py-8 text-center text-dark-400">Memuat pesanan...</div>
+          ) : orders.length === 0 ? (
+            <div className="py-8 text-center text-dark-400">Belum ada pesanan</div>
+          ) : (
+            <div className="space-y-3">
+              {orders.map((order) => {
+                const badge = statusBadge[order.status] || { label: order.status, variant: "default" as const };
+                return (
+                  <div
+                    key={order.id}
+                    className="flex items-center justify-between rounded-lg border border-dark-100 p-4 transition-colors hover:bg-dark-50"
+                  >
+                    <div>
+                      <p className="font-mono text-sm font-medium text-dark-900">{order.orderNumber}</p>
+                      <p className="text-sm text-dark-600">
+                        {order.items[0]?.product?.name || "Top Up"} - {order.items[0]?.product?.nominal || ""}
+                      </p>
+                      <p className="mt-1 text-xs text-dark-400">
+                        {new Date(order.createdAt).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-dark-900">{formatRupiah(order.totalAmount)}</p>
+                      <Badge variant={badge.variant}>{badge.label}</Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
