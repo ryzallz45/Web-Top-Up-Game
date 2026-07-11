@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyNotification } from "@/lib/midtrans";
+import { sendPaymentResult } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,11 @@ export async function POST(request: Request) {
 
     const order = await prisma.order.findUnique({
       where: { orderNumber },
-      include: { payment: true },
+      include: {
+        payment: true,
+        items: { include: { product: { include: { game: true } } } },
+        user: { select: { name: true, email: true } },
+      },
     });
 
     if (!order) {
@@ -82,6 +87,29 @@ export async function POST(request: Request) {
       where: { id: order.id },
       data: { status: orderStatus },
     });
+
+    if (order.user?.email && orderStatus !== "PENDING") {
+      const firstItem = order.items[0];
+      sendPaymentResult({
+        orderNumber: order.orderNumber,
+        customerName: order.user.name || "Customer",
+        customerEmail: order.user.email,
+        gameName: firstItem?.product?.game?.name || "Game",
+        nominal: firstItem?.product?.nominal || "",
+        productName: firstItem?.product?.name || "Produk",
+        amount: order.totalAmount,
+        status: orderStatus === "PROCESSING" || orderStatus === "SUCCESS" ? "success" : "failed",
+        paidAt: order.payment?.paidAt
+          ? new Date(order.payment.paidAt).toLocaleDateString("id-ID", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : undefined,
+      }).catch((err) => console.error("Failed to send payment result email:", err));
+    }
 
     if (orderStatus === "PROCESSING") {
       console.log(`Order ${orderNumber} paid successfully. Processing top-up...`);

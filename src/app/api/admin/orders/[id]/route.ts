@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { sendStatusUpdate } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,11 @@ export async function PUT(
 
     const order = await prisma.order.findUnique({
       where: { id: params.id },
-      include: { payment: true },
+      include: {
+        payment: true,
+        items: { include: { product: { include: { game: true } } } },
+        user: { select: { name: true, email: true } },
+      },
     });
 
     if (!order) {
@@ -55,6 +60,19 @@ export async function PUT(
           ...(status === "SUCCESS" ? { paidAt: new Date() } : {}),
         },
       });
+    }
+
+    if (order.user?.email && status !== "PENDING") {
+      const firstItem = order.items[0];
+      sendStatusUpdate({
+        orderNumber: order.orderNumber,
+        customerName: order.user.name || "Customer",
+        customerEmail: order.user.email,
+        gameName: firstItem?.product?.game?.name || "Game",
+        productName: firstItem?.product?.name || "Produk",
+        nominal: firstItem?.product?.nominal || "",
+        status,
+      }).catch((err) => console.error("Failed to send status update email:", err));
     }
 
     return NextResponse.json({
